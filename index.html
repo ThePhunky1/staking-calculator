@@ -37,14 +37,8 @@
     margin-bottom: 2.5rem;
   }
 
-  header a {
-    display: inline-block;
-  }
-
-  header img {
-    max-width: 280px;
-    height: auto;
-  }
+  header a { display: inline-block; }
+  header img { max-width: 280px; height: auto; }
 
   header p {
     color: var(--text-dim);
@@ -103,9 +97,14 @@
 
   .field input::placeholder { color: #607090; }
 
-  .token-field {
-    position: relative;
+  .field .helper-text {
+    font-size: 0.75rem;
+    color: #607090;
+    margin-top: 0.35rem;
+    line-height: 1.4;
   }
+
+  .token-field { position: relative; }
 
   .token-field .status-icon {
     position: absolute;
@@ -114,6 +113,83 @@
     transform: translateY(-50%);
     font-size: 1.1rem;
     transition: opacity 0.2s;
+  }
+
+  /* Toggle switch */
+  .toggle-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 1.25rem;
+    padding: 0.75rem 1rem;
+    background: var(--bg);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+  }
+
+  .toggle-row span {
+    font-size: 0.9rem;
+    font-weight: 500;
+    color: var(--text-dim);
+  }
+
+  .toggle {
+    position: relative;
+    width: 48px;
+    height: 26px;
+    flex-shrink: 0;
+  }
+
+  .toggle input {
+    opacity: 0;
+    width: 0;
+    height: 0;
+    position: absolute;
+  }
+
+  .toggle-track {
+    position: absolute;
+    inset: 0;
+    background: #1e3050;
+    border-radius: 13px;
+    cursor: pointer;
+    transition: background 0.3s ease;
+  }
+
+  .toggle-track::after {
+    content: '';
+    position: absolute;
+    top: 3px;
+    left: 3px;
+    width: 20px;
+    height: 20px;
+    background: #607090;
+    border-radius: 50%;
+    transition: transform 0.3s ease, background 0.3s ease;
+  }
+
+  .toggle input:checked + .toggle-track {
+    background: var(--accent);
+  }
+
+  .toggle input:checked + .toggle-track::after {
+    transform: translateX(22px);
+    background: #fff;
+  }
+
+  /* MEV fields container */
+  .mev-fields {
+    max-height: 0;
+    overflow: hidden;
+    opacity: 0;
+    transition: max-height 0.4s ease, opacity 0.3s ease, margin 0.3s ease;
+    margin-bottom: 0;
+  }
+
+  .mev-fields.visible {
+    max-height: 300px;
+    opacity: 1;
+    margin-bottom: 0;
   }
 
   button#calculate {
@@ -156,9 +232,7 @@
     display: none;
   }
 
-  #results {
-    display: none;
-  }
+  #results { display: none; }
 
   .result-hero {
     text-align: center;
@@ -187,6 +261,12 @@
     font-size: 1rem;
     color: var(--text-dim);
     margin-top: 0.4rem;
+  }
+
+  .sub-hero-line {
+    font-size: 0.88rem;
+    color: var(--text-dim);
+    margin-top: 0.3rem;
   }
 
   .result-grid {
@@ -290,8 +370,34 @@
   </div>
 
   <div class="field">
-    <label for="commission">Your Commission Rate (%)</label>
+    <label for="supply-staked">% of Supply Staked</label>
+    <input type="number" id="supply-staked" placeholder="e.g. 50" min="0.01" max="100" step="any">
+  </div>
+
+  <div class="field">
+    <label for="commission" id="commission-label">Commission Rate (%)</label>
     <input type="number" id="commission" placeholder="5.0" min="0" max="100" step="any">
+  </div>
+
+  <div class="toggle-row">
+    <span>Include MEV Rewards</span>
+    <label class="toggle">
+      <input type="checkbox" id="mev-toggle">
+      <span class="toggle-track"></span>
+    </label>
+  </div>
+
+  <div class="mev-fields" id="mev-fields">
+    <div class="field">
+      <label for="mev-commission">MEV Commission (%)</label>
+      <input type="number" id="mev-commission" placeholder="e.g. 25" min="0" max="100" step="any">
+    </div>
+
+    <div class="field">
+      <label for="mev-apy">Estimated MEV APY (%)</label>
+      <input type="number" id="mev-apy" placeholder="e.g. 8" min="0" step="any">
+      <div class="helper-text">Check your chain's validator dashboard for current rates (e.g. monadvision.com for Monad, jito.wtf for Solana)</div>
+    </div>
   </div>
 
   <button id="calculate">Calculate Earnings</button>
@@ -303,6 +409,8 @@
     <div class="label">Commission Revenue (Monthly)</div>
     <div class="value-hero highlight" id="r-commission-usd">—</div>
     <div class="sub-hero" id="r-commission-tokens">—</div>
+    <div class="sub-hero-line" id="r-inflation-line" style="display:none;"></div>
+    <div class="sub-hero-line" id="r-mev-line" style="display:none;"></div>
   </div>
   <div class="result-grid">
     <div class="result-item full">
@@ -323,6 +431,16 @@
   const $ = (s) => document.querySelector(s);
   const btn = $('#calculate');
   const errorEl = $('#error-msg');
+  const mevToggle = $('#mev-toggle');
+  const mevFields = $('#mev-fields');
+  const commissionLabel = $('#commission-label');
+
+  // Toggle MEV fields visibility and relabel commission
+  mevToggle.addEventListener('change', () => {
+    const on = mevToggle.checked;
+    mevFields.classList.toggle('visible', on);
+    commissionLabel.textContent = on ? 'Staking Commission (%)' : 'Commission Rate (%)';
+  });
 
   function showError(msg) {
     errorEl.textContent = msg;
@@ -337,13 +455,11 @@
     return '$' + fmt(n, 2);
   }
 
-  // Resolve token symbol to CoinGecko coin ID via /search
   async function resolveSymbol(symbol) {
     const res = await fetch(`https://api.coingecko.com/api/v3/search?query=${encodeURIComponent(symbol)}`);
     if (!res.ok) throw new Error('CoinGecko search failed');
     const data = await res.json();
     const upper = symbol.toUpperCase();
-    // Find exact symbol match
     const match = data.coins.find(c => c.symbol.toUpperCase() === upper);
     if (!match) throw new Error(`Token "${symbol}" not found on CoinGecko`);
     return match.id;
@@ -364,42 +480,82 @@
     const symbol = $('#symbol').value.trim();
     const staked = parseFloat($('#staked').value);
     const inflation = parseFloat($('#inflation').value);
+    const supplyStaked = parseFloat($('#supply-staked').value);
     const commission = parseFloat($('#commission').value);
+    const mevOn = mevToggle.checked;
 
     if (!symbol) return showError('Enter a token symbol.');
     if (isNaN(staked) || staked <= 0) return showError('Enter a valid number of staked tokens.');
     if (isNaN(inflation) || inflation < 0) return showError('Enter a valid inflation rate.');
-    if (isNaN(commission) || commission < 0 || commission > 100) return showError('Commission must be 0–100%.');
+    if (isNaN(supplyStaked) || supplyStaked <= 0 || supplyStaked > 100) return showError('% of Supply Staked must be between 0 and 100.');
+    if (isNaN(commission) || commission < 0 || commission > 100) return showError('Commission must be 0\u2013100%.');
+
+    let mevCommission = 0, mevApy = 0;
+    if (mevOn) {
+      mevCommission = parseFloat($('#mev-commission').value);
+      mevApy = parseFloat($('#mev-apy').value);
+      if (isNaN(mevCommission) || mevCommission < 0 || mevCommission > 100) return showError('MEV Commission must be 0\u2013100%.');
+      if (isNaN(mevApy) || mevApy < 0) return showError('Enter a valid MEV APY.');
+    }
 
     btn.disabled = true;
-    btn.innerHTML = '<span class="spinner"></span> Fetching price…';
+    btn.innerHTML = '<span class="spinner"></span> Fetching price\u2026';
     const statusEl = $('#symbol-status');
     statusEl.textContent = '';
 
     try {
       const coinId = await resolveSymbol(symbol);
       const price = await fetchPrice(coinId);
-
-      const monthlyTokens = (staked * inflation / 100) / 12;
-      const annualTokens = monthlyTokens * 12;
-      const commissionTokens = monthlyTokens * (commission / 100);
-      const monthlyUsd = monthlyTokens * price;
-      const annualUsd = annualTokens * price;
-      const commissionUsd = commissionTokens * price;
-      const effectiveApy = inflation; // simplified: same as inflation for single-asset staking
-
       const sym = symbol.toUpperCase();
-      $('#r-commission-usd').textContent = fmtUsd(commissionUsd) + ' /mo';
-      $('#r-commission-tokens').textContent = fmt(commissionTokens, 4) + ' ' + sym;
-      $('#r-apy').textContent = fmt(effectiveApy, 2) + '%';
+
+      // Inflation stream
+      const inflationApy = inflation / (supplyStaked / 100);
+      const monthlyInflationTokens = (staked * inflationApy / 100) / 12;
+      const inflationCommissionTokens = monthlyInflationTokens * (commission / 100);
+      const inflationCommissionUsd = inflationCommissionTokens * price;
+
+      const inflationLine = $('#r-inflation-line');
+      const mevLine = $('#r-mev-line');
+
+      if (mevOn) {
+        // MEV stream
+        const monthlyMevTokens = (staked * mevApy / 100) / 12;
+        const mevCommissionTokens = monthlyMevTokens * (mevCommission / 100);
+        const mevCommissionUsd = mevCommissionTokens * price;
+
+        // Combined
+        const totalCommissionTokens = inflationCommissionTokens + mevCommissionTokens;
+        const totalCommissionUsd = inflationCommissionUsd + mevCommissionUsd;
+        const blendedApy = inflationApy + mevApy;
+
+        $('#r-commission-usd').textContent = fmtUsd(totalCommissionUsd) + ' /mo';
+        $('#r-commission-tokens').textContent = fmt(totalCommissionTokens, 4) + ' ' + sym;
+
+        inflationLine.textContent = 'Inflation: ' + fmt(inflationCommissionTokens, 4) + ' ' + sym + ' / ' + fmtUsd(inflationCommissionUsd);
+        mevLine.textContent = 'MEV: ' + fmt(mevCommissionTokens, 4) + ' ' + sym + ' / ' + fmtUsd(mevCommissionUsd);
+        inflationLine.style.display = 'block';
+        mevLine.style.display = 'block';
+
+        $('#r-apy').textContent = fmt(blendedApy, 2) + '%';
+      } else {
+        // Inflation-only mode
+        $('#r-commission-usd').textContent = fmtUsd(inflationCommissionUsd) + ' /mo';
+        $('#r-commission-tokens').textContent = fmt(inflationCommissionTokens, 4) + ' ' + sym;
+
+        inflationLine.style.display = 'none';
+        mevLine.style.display = 'none';
+
+        $('#r-apy').textContent = fmt(inflationApy, 2) + '%';
+      }
+
       $('#r-price').textContent = '1 ' + sym + ' = ' + fmtUsd(price);
 
-      statusEl.textContent = '✓';
+      statusEl.textContent = '\u2713';
       statusEl.style.color = '#2957CB';
       $('#results').style.display = 'block';
     } catch (err) {
       showError(err.message);
-      statusEl.textContent = '✗';
+      statusEl.textContent = '\u2717';
       statusEl.style.color = 'var(--error)';
     } finally {
       btn.disabled = false;
