@@ -1,0 +1,419 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>GlobalStake Staking Calculator</title>
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  :root {
+    --bg: #0E172D;
+    --surface: #152036;
+    --surface-hover: #1a2a45;
+    --border: #1e3050;
+    --accent: #2957CB;
+    --accent-glow: rgba(41, 87, 203, 0.3);
+    --text: #FFFFFF;
+    --text-dim: #C3C3C3;
+    --success: #2957CB;
+    --error: #ff6b6b;
+    --font: 'Segoe UI', system-ui, -apple-system, sans-serif;
+  }
+
+  body {
+    font-family: var(--font);
+    background: var(--bg);
+    color: var(--text);
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    padding: 2rem 1rem;
+  }
+
+  header {
+    text-align: center;
+    margin-bottom: 2.5rem;
+  }
+
+  header a {
+    display: inline-block;
+  }
+
+  header img {
+    max-width: 280px;
+    height: auto;
+  }
+
+  header p {
+    color: var(--text-dim);
+    margin-top: 0.6rem;
+    font-size: 0.95rem;
+  }
+
+  .card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 16px;
+    padding: 2rem;
+    width: 100%;
+    max-width: 520px;
+    margin-bottom: 1.5rem;
+  }
+
+  .card h2 {
+    font-size: 1rem;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    color: var(--text-dim);
+    margin-bottom: 1.5rem;
+  }
+
+  .field {
+    margin-bottom: 1.25rem;
+  }
+
+  .field label {
+    display: block;
+    font-size: 0.85rem;
+    color: var(--text-dim);
+    margin-bottom: 0.4rem;
+    font-weight: 500;
+  }
+
+  .field input {
+    width: 100%;
+    padding: 0.75rem 1rem;
+    background: var(--bg);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    color: var(--text);
+    font-size: 1rem;
+    font-family: var(--font);
+    transition: border-color 0.2s, box-shadow 0.2s;
+  }
+
+  .field input:focus {
+    outline: none;
+    border-color: var(--accent);
+    box-shadow: 0 0 0 3px var(--accent-glow);
+  }
+
+  .field input::placeholder { color: #607090; }
+
+  .token-field {
+    position: relative;
+  }
+
+  .token-field .status-icon {
+    position: absolute;
+    right: 12px;
+    top: 50%;
+    transform: translateY(-50%);
+    font-size: 1.1rem;
+    transition: opacity 0.2s;
+  }
+
+  button#calculate {
+    width: 100%;
+    padding: 0.85rem;
+    background: #2957CB;
+    color: #fff;
+    border: none;
+    border-radius: 10px;
+    font-size: 1rem;
+    font-weight: 600;
+    font-family: var(--font);
+    cursor: pointer;
+    transition: transform 0.15s, box-shadow 0.2s;
+    margin-top: 0.5rem;
+  }
+
+  button#calculate:hover {
+    transform: translateY(-1px);
+    box-shadow: 0 6px 20px var(--accent-glow);
+  }
+
+  button#calculate:active { transform: translateY(0); }
+
+  button#calculate:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+    transform: none;
+    box-shadow: none;
+  }
+
+  #error-msg {
+    background: rgba(255, 107, 107, 0.1);
+    border: 1px solid rgba(255, 107, 107, 0.3);
+    color: var(--error);
+    padding: 0.75rem 1rem;
+    border-radius: 10px;
+    font-size: 0.9rem;
+    margin-bottom: 1.25rem;
+    display: none;
+  }
+
+  #results {
+    display: none;
+  }
+
+  .result-hero {
+    text-align: center;
+    padding: 1.5rem 1rem;
+    margin-bottom: 1rem;
+    background: var(--bg);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+  }
+
+  .result-hero .label {
+    font-size: 0.78rem;
+    color: var(--text-dim);
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    margin-bottom: 0.5rem;
+  }
+
+  .value-hero {
+    font-size: 2.4rem;
+    font-weight: 800;
+    line-height: 1.1;
+  }
+
+  .sub-hero {
+    font-size: 1rem;
+    color: var(--text-dim);
+    margin-top: 0.4rem;
+  }
+
+  .result-grid {
+    display: grid;
+    grid-template-columns: 1fr;
+    gap: 1rem;
+  }
+
+  .result-item {
+    background: var(--bg);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 1.1rem;
+  }
+
+  .result-item.full { grid-column: 1 / -1; text-align: center; }
+
+  .result-item .label {
+    font-size: 0.78rem;
+    color: var(--text-dim);
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    margin-bottom: 0.35rem;
+  }
+
+  .result-item .value {
+    font-size: 1.35rem;
+    font-weight: 700;
+  }
+
+  .result-item .sub {
+    font-size: 0.85rem;
+    color: var(--text-dim);
+    margin-top: 0.15rem;
+  }
+
+  .highlight { color: #2957CB; }
+
+  .price-note {
+    text-align: center;
+    color: var(--text-dim);
+    font-size: 0.78rem;
+    margin-top: 1rem;
+  }
+
+  .spinner {
+    display: inline-block;
+    width: 16px;
+    height: 16px;
+    border: 2px solid var(--border);
+    border-top-color: var(--accent);
+    border-radius: 50%;
+    animation: spin 0.6s linear infinite;
+  }
+
+  @keyframes spin { to { transform: rotate(360deg); } }
+
+  footer {
+    margin-top: auto;
+    padding-top: 2rem;
+    color: var(--text-dim);
+    font-size: 0.8rem;
+  }
+
+  @media (max-width: 500px) {
+    .result-grid { grid-template-columns: 1fr; }
+    .card { padding: 1.5rem; }
+  }
+</style>
+</head>
+<body>
+
+<header>
+  <a href="https://globalstake.io" target="_blank" rel="noopener">
+    <img src="https://globalstake.io/wp-content/uploads/2024/12/GlobalStake-Logo-Reversed.png" alt="GlobalStake">
+  </a>
+  <p>Staking Earnings Calculator</p>
+</header>
+
+<div class="card">
+  <h2>Parameters</h2>
+
+  <div id="error-msg"></div>
+
+  <div class="field">
+    <label for="symbol">Token Symbol</label>
+    <div class="token-field">
+      <input type="text" id="symbol" placeholder="e.g. ATOM, SOL, DOT" autocomplete="off" spellcheck="false">
+      <span class="status-icon" id="symbol-status"></span>
+    </div>
+  </div>
+
+  <div class="field">
+    <label for="staked">Staked Tokens</label>
+    <input type="number" id="staked" placeholder="10000" min="0" step="any">
+  </div>
+
+  <div class="field">
+    <label for="inflation">Annual Inflation Rate (%)</label>
+    <input type="number" id="inflation" placeholder="7.0" min="0" step="any">
+  </div>
+
+  <div class="field">
+    <label for="commission">Your Commission Rate (%)</label>
+    <input type="number" id="commission" placeholder="5.0" min="0" max="100" step="any">
+  </div>
+
+  <button id="calculate">Calculate Earnings</button>
+</div>
+
+<div class="card" id="results">
+  <h2>Projected Earnings</h2>
+  <div class="result-hero">
+    <div class="label">Commission Revenue (Monthly)</div>
+    <div class="value-hero highlight" id="r-commission-usd">—</div>
+    <div class="sub-hero" id="r-commission-tokens">—</div>
+  </div>
+  <div class="result-grid">
+    <div class="result-item full">
+      <div class="label">Effective APY</div>
+      <div class="value highlight" id="r-apy">—</div>
+    </div>
+    <div class="result-item full price-bar">
+      <div class="label">Live Price</div>
+      <div class="value" id="r-price">—</div>
+    </div>
+  </div>
+  <div class="price-note">Prices from CoinGecko. Updated at time of calculation.</div>
+</div>
+
+<footer>&copy; 2026 GlobalStake</footer>
+
+<script>
+  const $ = (s) => document.querySelector(s);
+  const btn = $('#calculate');
+  const errorEl = $('#error-msg');
+
+  function showError(msg) {
+    errorEl.textContent = msg;
+    errorEl.style.display = msg ? 'block' : 'none';
+  }
+
+  function fmt(n, decimals = 2) {
+    return n.toLocaleString('en-US', { minimumFractionDigits: decimals, maximumFractionDigits: decimals });
+  }
+
+  function fmtUsd(n) {
+    return '$' + fmt(n, 2);
+  }
+
+  // Resolve token symbol to CoinGecko coin ID via /search
+  async function resolveSymbol(symbol) {
+    const res = await fetch(`https://api.coingecko.com/api/v3/search?query=${encodeURIComponent(symbol)}`);
+    if (!res.ok) throw new Error('CoinGecko search failed');
+    const data = await res.json();
+    const upper = symbol.toUpperCase();
+    // Find exact symbol match
+    const match = data.coins.find(c => c.symbol.toUpperCase() === upper);
+    if (!match) throw new Error(`Token "${symbol}" not found on CoinGecko`);
+    return match.id;
+  }
+
+  async function fetchPrice(coinId) {
+    const res = await fetch(`https://api.coingecko.com/api/v3/simple/price?ids=${encodeURIComponent(coinId)}&vs_currencies=usd`);
+    if (!res.ok) throw new Error('Price fetch failed');
+    const data = await res.json();
+    if (!data[coinId] || data[coinId].usd == null) throw new Error('Price unavailable');
+    return data[coinId].usd;
+  }
+
+  btn.addEventListener('click', async () => {
+    showError('');
+    $('#results').style.display = 'none';
+
+    const symbol = $('#symbol').value.trim();
+    const staked = parseFloat($('#staked').value);
+    const inflation = parseFloat($('#inflation').value);
+    const commission = parseFloat($('#commission').value);
+
+    if (!symbol) return showError('Enter a token symbol.');
+    if (isNaN(staked) || staked <= 0) return showError('Enter a valid number of staked tokens.');
+    if (isNaN(inflation) || inflation < 0) return showError('Enter a valid inflation rate.');
+    if (isNaN(commission) || commission < 0 || commission > 100) return showError('Commission must be 0–100%.');
+
+    btn.disabled = true;
+    btn.innerHTML = '<span class="spinner"></span> Fetching price…';
+    const statusEl = $('#symbol-status');
+    statusEl.textContent = '';
+
+    try {
+      const coinId = await resolveSymbol(symbol);
+      const price = await fetchPrice(coinId);
+
+      const monthlyTokens = (staked * inflation / 100) / 12;
+      const annualTokens = monthlyTokens * 12;
+      const commissionTokens = monthlyTokens * (commission / 100);
+      const monthlyUsd = monthlyTokens * price;
+      const annualUsd = annualTokens * price;
+      const commissionUsd = commissionTokens * price;
+      const effectiveApy = inflation; // simplified: same as inflation for single-asset staking
+
+      const sym = symbol.toUpperCase();
+      $('#r-commission-usd').textContent = fmtUsd(commissionUsd) + ' /mo';
+      $('#r-commission-tokens').textContent = fmt(commissionTokens, 4) + ' ' + sym;
+      $('#r-apy').textContent = fmt(effectiveApy, 2) + '%';
+      $('#r-price').textContent = '1 ' + sym + ' = ' + fmtUsd(price);
+
+      statusEl.textContent = '✓';
+      statusEl.style.color = '#2957CB';
+      $('#results').style.display = 'block';
+    } catch (err) {
+      showError(err.message);
+      statusEl.textContent = '✗';
+      statusEl.style.color = 'var(--error)';
+    } finally {
+      btn.disabled = false;
+      btn.textContent = 'Calculate Earnings';
+    }
+  });
+
+  // Allow Enter key to trigger calculation
+  document.querySelectorAll('input').forEach(input => {
+    input.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter') btn.click();
+    });
+  });
+</script>
+
+</body>
+</html>
