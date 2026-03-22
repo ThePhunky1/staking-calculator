@@ -621,9 +621,12 @@
     </div>
 
     <div class="field">
-      <label for="mev-apy">Estimated MEV APY (%)</label>
-      <input type="number" id="mev-apy" placeholder="e.g. 8" min="0" step="any">
-      <div class="helper-text">Check your chain's validator dashboard for current rates (e.g. monadvision.com for Monad, jito.wtf for Solana)</div>
+      <label for="mev-apy">Estimated MEV APY (%) <span class="badge-est" id="mev-apy-badge" style="color:#2957CB;background:rgba(41,87,203,0.12);">Live</span></label>
+      <div class="token-field">
+        <input type="number" id="mev-apy" placeholder="e.g. 8" min="0" step="any">
+        <span class="status-icon" id="mev-apy-spinner" style="display:none;"><span class="spinner"></span></span>
+      </div>
+      <div class="helper-text" id="mev-apy-helper">Check your chain's validator dashboard for current rates (e.g. monadvision.com for Monad, jito.wtf for Solana)</div>
       <div id="mev-link" style="margin-top:0.3rem;"></div>
     </div>
   </div>
@@ -867,9 +870,64 @@
     }
   }
 
+  // ── Jito MEV APY auto-fetch ─────────────────────────
+
+  // GlobalStake vote account — update if validator changes
+  const JITO_VOTE_ACCOUNT = 'FdGcvmbpebUwYA3vSywnagsaC3Tq3pAVmcR6VoxVcdV9';
+  const mevApyInput = $('#mev-apy');
+  const mevApyBadge = $('#mev-apy-badge');
+  const mevApySpinner = $('#mev-apy-spinner');
+  const mevApyHelper = $('#mev-apy-helper');
+  let jitoFetchInFlight = false;
+
+  async function fetchJitoMevApy() {
+    const staked = parseFloat($('#staked').value);
+    if (isNaN(staked) || staked <= 0) return; // need staked tokens for APY calc
+
+    jitoFetchInFlight = true;
+    mevApySpinner.style.display = '';
+    mevApyBadge.classList.remove('visible');
+
+    try {
+      const res = await fetch(`https://kobe.mainnet.jito.network/api/v1/validators/${JITO_VOTE_ACCOUNT}`);
+      if (!res.ok) throw new Error('Jito API error');
+      const data = await res.json();
+
+      // Use most recent 10 epochs
+      const epochs = Array.isArray(data) ? data : (data.epochs || []);
+      const recentEpochs = epochs.slice(-10);
+      if (recentEpochs.length === 0) throw new Error('No epoch data');
+
+      // Convert lamports to SOL (1 SOL = 1,000,000,000 lamports)
+      // Each Solana epoch is ~2.5 days, so 10 epochs ~ 25 days
+      const avgMevSolPerEpoch = recentEpochs.reduce((sum, e) => sum + (e.mev_rewards || 0), 0) / recentEpochs.length / 1e9;
+      const annualMevSol = avgMevSolPerEpoch * (365 / 2.5);
+      const grossMevApy = (annualMevSol / staked) * 100;
+
+      mevApyInput.value = grossMevApy.toFixed(2);
+      mevApyBadge.classList.add('visible');
+      mevApyHelper.textContent = 'Check your chain\'s validator dashboard for current rates (e.g. monadvision.com for Monad, jito.wtf for Solana)';
+    } catch (err) {
+      mevApyInput.value = '';
+      mevApyBadge.classList.remove('visible');
+      mevApyHelper.textContent = 'Auto-fetch unavailable \u2014 enter manually';
+    } finally {
+      mevApySpinner.style.display = 'none';
+      jitoFetchInFlight = false;
+    }
+  }
+
+  function tryJitoFetch() {
+    const sym = $('#symbol').value.trim().toUpperCase();
+    if (sym === 'SOL' && mevToggle.checked && !jitoFetchInFlight) {
+      fetchJitoMevApy();
+    }
+  }
+
   $('#symbol').addEventListener('input', (e) => {
     lookupStakingRatio(e.target.value);
     updateMevLink(e.target.value);
+    tryJitoFetch();
   });
 
   // ── MEV toggle ─────────────────────────────────────
@@ -878,6 +936,7 @@
     const on = mevToggle.checked;
     mevFields.classList.toggle('visible', on);
     commissionLabel.textContent = on ? 'Staking Commission (%)' : 'Commission Rate (%)';
+    tryJitoFetch();
   });
 
   // ── Helpers ────────────────────────────────────────
