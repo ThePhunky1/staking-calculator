@@ -492,6 +492,38 @@
     margin-top: 0.15rem;
   }
 
+  /* Period pill toggle */
+  .period-toggle {
+    display: flex;
+    justify-content: center;
+    margin-bottom: 1.25rem;
+  }
+
+  .period-toggle .pill-group {
+    display: inline-flex;
+    background: var(--bg);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    overflow: hidden;
+  }
+
+  .period-toggle .pill {
+    padding: 0.45rem 1.2rem;
+    font-size: 0.85rem;
+    font-weight: 600;
+    font-family: var(--font);
+    background: none;
+    border: none;
+    color: #C3C3C3;
+    cursor: pointer;
+    transition: background 0.2s, color 0.2s;
+  }
+
+  .period-toggle .pill.active {
+    background: #2957CB;
+    color: #fff;
+  }
+
   .highlight { color: #2957CB; }
 
   .price-note {
@@ -615,8 +647,14 @@
 
 <div class="card" id="results">
   <h2>Projected Earnings</h2>
+  <div class="period-toggle">
+    <div class="pill-group">
+      <button class="pill active" id="pill-monthly">Monthly</button>
+      <button class="pill" id="pill-annual">Annual</button>
+    </div>
+  </div>
   <div class="result-hero">
-    <div class="label">Commission Revenue (Monthly)</div>
+    <div class="label" id="r-commission-label">Commission Revenue (Monthly)</div>
     <div class="value-hero highlight" id="r-commission-usd">&mdash;</div>
     <div class="sub-hero" id="r-commission-tokens">&mdash;</div>
     <div class="sub-hero-line" id="r-inflation-line" style="display:none;"></div>
@@ -855,6 +893,60 @@
     return data[coinId].usd;
   }
 
+  // ── Period toggle (Monthly / Annual) ────────────────
+
+  let periodMultiplier = 1; // 1 = monthly, 12 = annual
+  let lastCalc = null; // stores monthly values after calculation
+
+  const pillMonthly = $('#pill-monthly');
+  const pillAnnual = $('#pill-annual');
+
+  function setPeriod(mult) {
+    periodMultiplier = mult;
+    pillMonthly.classList.toggle('active', mult === 1);
+    pillAnnual.classList.toggle('active', mult === 12);
+    if (lastCalc) renderResults();
+  }
+
+  pillMonthly.addEventListener('click', () => setPeriod(1));
+  pillAnnual.addEventListener('click', () => setPeriod(12));
+
+  function renderResults() {
+    const c = lastCalc;
+    const m = periodMultiplier;
+    const periodLabel = m === 1 ? 'Monthly' : 'Annual';
+    const periodSuffix = m === 1 ? ' /mo' : ' /yr';
+
+    $('#r-commission-label').textContent = 'Commission Revenue (' + periodLabel + ')';
+
+    if (c.mevOn) {
+      const totalUsd = (c.inflationCommissionUsd + c.mevCommissionUsd) * m;
+      const totalTokens = (c.inflationCommissionTokens + c.mevCommissionTokens) * m;
+
+      $('#r-commission-usd').textContent = fmtUsd(totalUsd) + periodSuffix;
+      $('#r-commission-tokens').textContent = fmt(totalTokens, 4) + ' ' + c.sym;
+
+      const inflLine = $('#r-inflation-line');
+      const mevLine = $('#r-mev-line');
+      inflLine.textContent = 'Inflation: ' + fmt(c.inflationCommissionTokens * m, 4) + ' ' + c.sym + ' / ' + fmtUsd(c.inflationCommissionUsd * m);
+      mevLine.textContent = 'MEV: ' + fmt(c.mevCommissionTokens * m, 4) + ' ' + c.sym + ' / ' + fmtUsd(c.mevCommissionUsd * m);
+      inflLine.style.display = 'block';
+      mevLine.style.display = 'block';
+
+      $('#r-apy').textContent = fmt(c.blendedApy, 2) + '%';
+    } else {
+      $('#r-commission-usd').textContent = fmtUsd(c.inflationCommissionUsd * m) + periodSuffix;
+      $('#r-commission-tokens').textContent = fmt(c.inflationCommissionTokens * m, 4) + ' ' + c.sym;
+
+      $('#r-inflation-line').style.display = 'none';
+      $('#r-mev-line').style.display = 'none';
+
+      $('#r-apy').textContent = fmt(c.inflationApy, 2) + '%';
+    }
+
+    $('#r-price').textContent = '1 ' + c.sym + ' = ' + fmtUsd(c.price);
+  }
+
   // ── Calculate ──────────────────────────────────────
 
   btn.addEventListener('click', async () => {
@@ -874,11 +966,11 @@
     if (isNaN(supplyStaked) || supplyStaked <= 0 || supplyStaked > 100) return showError('% of Supply Staked must be between 0 and 100.');
     if (isNaN(commission) || commission < 0 || commission > 100) return showError('Commission must be 0\u2013100%.');
 
-    let mevCommission = 0, mevApy = 0;
+    let mevCommissionRate = 0, mevApy = 0;
     if (mevOn) {
-      mevCommission = parseFloat($('#mev-commission').value);
+      mevCommissionRate = parseFloat($('#mev-commission').value);
       mevApy = parseFloat($('#mev-apy').value);
-      if (isNaN(mevCommission) || mevCommission < 0 || mevCommission > 100) return showError('MEV Commission must be 0\u2013100%.');
+      if (isNaN(mevCommissionRate) || mevCommissionRate < 0 || mevCommissionRate > 100) return showError('MEV Commission must be 0\u2013100%.');
       if (isNaN(mevApy) || mevApy < 0) return showError('Enter a valid MEV APY.');
     }
 
@@ -892,47 +984,29 @@
       const price = await fetchPrice(coinId);
       const sym = symbol.toUpperCase();
 
-      // Inflation stream
+      // Inflation stream (monthly base)
       const inflationApy = inflation / (supplyStaked / 100);
       const monthlyInflationTokens = (staked * inflationApy / 100) / 12;
       const inflationCommissionTokens = monthlyInflationTokens * (commission / 100);
       const inflationCommissionUsd = inflationCommissionTokens * price;
 
-      const inflationLine = $('#r-inflation-line');
-      const mevLine = $('#r-mev-line');
+      // Store monthly base values
+      lastCalc = {
+        sym, price, mevOn, inflationApy,
+        inflationCommissionTokens, inflationCommissionUsd,
+        mevCommissionTokens: 0, mevCommissionUsd: 0, blendedApy: inflationApy,
+      };
 
       if (mevOn) {
-        // MEV stream
         const monthlyMevTokens = (staked * mevApy / 100) / 12;
-        const mevCommissionTokens = monthlyMevTokens * (mevCommission / 100);
+        const mevCommissionTokens = monthlyMevTokens * (mevCommissionRate / 100);
         const mevCommissionUsd = mevCommissionTokens * price;
-
-        // Combined
-        const totalCommissionTokens = inflationCommissionTokens + mevCommissionTokens;
-        const totalCommissionUsd = inflationCommissionUsd + mevCommissionUsd;
-        const blendedApy = inflationApy + mevApy;
-
-        $('#r-commission-usd').textContent = fmtUsd(totalCommissionUsd) + ' /mo';
-        $('#r-commission-tokens').textContent = fmt(totalCommissionTokens, 4) + ' ' + sym;
-
-        inflationLine.textContent = 'Inflation: ' + fmt(inflationCommissionTokens, 4) + ' ' + sym + ' / ' + fmtUsd(inflationCommissionUsd);
-        mevLine.textContent = 'MEV: ' + fmt(mevCommissionTokens, 4) + ' ' + sym + ' / ' + fmtUsd(mevCommissionUsd);
-        inflationLine.style.display = 'block';
-        mevLine.style.display = 'block';
-
-        $('#r-apy').textContent = fmt(blendedApy, 2) + '%';
-      } else {
-        // Inflation-only mode
-        $('#r-commission-usd').textContent = fmtUsd(inflationCommissionUsd) + ' /mo';
-        $('#r-commission-tokens').textContent = fmt(inflationCommissionTokens, 4) + ' ' + sym;
-
-        inflationLine.style.display = 'none';
-        mevLine.style.display = 'none';
-
-        $('#r-apy').textContent = fmt(inflationApy, 2) + '%';
+        lastCalc.mevCommissionTokens = mevCommissionTokens;
+        lastCalc.mevCommissionUsd = mevCommissionUsd;
+        lastCalc.blendedApy = inflationApy + mevApy;
       }
 
-      $('#r-price').textContent = '1 ' + sym + ' = ' + fmtUsd(price);
+      renderResults();
 
       statusEl.textContent = '\u2713';
       statusEl.style.color = '#2957CB';
