@@ -115,6 +115,153 @@
     transition: opacity 0.2s;
   }
 
+  /* Preset bar */
+  .preset-bar {
+    display: none;
+    margin-bottom: 1.25rem;
+  }
+
+  .preset-bar.visible { display: block; }
+
+  .preset-bar label {
+    display: block;
+    font-size: 0.85rem;
+    color: var(--text-dim);
+    margin-bottom: 0.4rem;
+    font-weight: 500;
+  }
+
+  .preset-list {
+    display: flex;
+    flex-direction: column;
+    gap: 0.4rem;
+  }
+
+  .preset-entry {
+    display: flex;
+    align-items: center;
+    background: var(--bg);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    overflow: hidden;
+    transition: border-color 0.2s;
+  }
+
+  .preset-entry:hover { border-color: var(--accent); }
+
+  .preset-entry button.preset-load {
+    flex: 1;
+    padding: 0.6rem 0.85rem;
+    background: none;
+    border: none;
+    color: var(--text);
+    font-size: 0.9rem;
+    font-family: var(--font);
+    text-align: left;
+    cursor: pointer;
+  }
+
+  .preset-entry button.preset-load:hover { color: var(--accent); }
+
+  .preset-entry button.preset-delete {
+    padding: 0.6rem 0.75rem;
+    background: none;
+    border: none;
+    border-left: 1px solid var(--border);
+    color: #607090;
+    font-size: 1rem;
+    cursor: pointer;
+    line-height: 1;
+    transition: color 0.2s;
+  }
+
+  .preset-entry button.preset-delete:hover { color: var(--error); }
+
+  /* Save preset modal overlay */
+  .modal-overlay {
+    display: none;
+    position: fixed;
+    inset: 0;
+    background: rgba(0, 0, 0, 0.6);
+    z-index: 100;
+    align-items: center;
+    justify-content: center;
+  }
+
+  .modal-overlay.visible {
+    display: flex;
+  }
+
+  .modal {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 14px;
+    padding: 1.75rem;
+    width: 90%;
+    max-width: 380px;
+  }
+
+  .modal h3 {
+    font-size: 1rem;
+    font-weight: 600;
+    margin-bottom: 1rem;
+    color: var(--text);
+  }
+
+  .modal input {
+    width: 100%;
+    padding: 0.7rem 0.9rem;
+    background: var(--bg);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    color: var(--text);
+    font-size: 0.95rem;
+    font-family: var(--font);
+    margin-bottom: 1rem;
+  }
+
+  .modal input:focus {
+    outline: none;
+    border-color: var(--accent);
+    box-shadow: 0 0 0 3px var(--accent-glow);
+  }
+
+  .modal input::placeholder { color: #607090; }
+
+  .modal-actions {
+    display: flex;
+    gap: 0.75rem;
+  }
+
+  .modal-actions button {
+    flex: 1;
+    padding: 0.65rem;
+    border-radius: 8px;
+    font-size: 0.9rem;
+    font-weight: 600;
+    font-family: var(--font);
+    cursor: pointer;
+    transition: transform 0.15s;
+  }
+
+  .modal-actions button:active { transform: translateY(0); }
+
+  .modal-actions .btn-cancel {
+    background: none;
+    border: 1px solid var(--border);
+    color: var(--text-dim);
+  }
+
+  .modal-actions .btn-cancel:hover { border-color: #607090; }
+
+  .modal-actions .btn-save {
+    background: var(--accent);
+    border: none;
+    color: #fff;
+  }
+
+  .modal-actions .btn-save:hover { transform: translateY(-1px); }
+
   /* Toggle switch */
   .toggle-row {
     display: flex;
@@ -192,8 +339,15 @@
     margin-bottom: 0;
   }
 
+  /* Button row */
+  .btn-row {
+    display: flex;
+    gap: 0.75rem;
+    margin-top: 0.5rem;
+  }
+
   button#calculate {
-    width: 100%;
+    flex: 1;
     padding: 0.85rem;
     background: #2957CB;
     color: #fff;
@@ -204,7 +358,6 @@
     font-family: var(--font);
     cursor: pointer;
     transition: transform 0.15s, box-shadow 0.2s;
-    margin-top: 0.5rem;
   }
 
   button#calculate:hover {
@@ -220,6 +373,27 @@
     transform: none;
     box-shadow: none;
   }
+
+  button#save-preset {
+    padding: 0.85rem 1.25rem;
+    background: none;
+    border: 1px solid var(--accent);
+    border-radius: 10px;
+    color: var(--accent);
+    font-size: 0.9rem;
+    font-weight: 600;
+    font-family: var(--font);
+    cursor: pointer;
+    white-space: nowrap;
+    transition: background 0.2s, color 0.2s, transform 0.15s;
+  }
+
+  button#save-preset:hover {
+    background: rgba(41, 87, 203, 0.1);
+    transform: translateY(-1px);
+  }
+
+  button#save-preset:active { transform: translateY(0); }
 
   #error-msg {
     background: rgba(255, 107, 107, 0.1);
@@ -349,6 +523,11 @@
 <div class="card">
   <h2>Parameters</h2>
 
+  <div class="preset-bar" id="preset-bar">
+    <label>Saved Presets</label>
+    <div class="preset-list" id="preset-list"></div>
+  </div>
+
   <div id="error-msg"></div>
 
   <div class="field">
@@ -400,26 +579,41 @@
     </div>
   </div>
 
-  <button id="calculate">Calculate Earnings</button>
+  <div class="btn-row">
+    <button id="calculate">Calculate Earnings</button>
+    <button id="save-preset">Save Preset</button>
+  </div>
+</div>
+
+<!-- Save preset modal -->
+<div class="modal-overlay" id="modal-overlay">
+  <div class="modal">
+    <h3>Name this preset</h3>
+    <input type="text" id="preset-name" placeholder='e.g. "Solana - Jito", "ATOM - 5% commission"' autocomplete="off">
+    <div class="modal-actions">
+      <button class="btn-cancel" id="modal-cancel">Cancel</button>
+      <button class="btn-save" id="modal-save">Save</button>
+    </div>
+  </div>
 </div>
 
 <div class="card" id="results">
   <h2>Projected Earnings</h2>
   <div class="result-hero">
     <div class="label">Commission Revenue (Monthly)</div>
-    <div class="value-hero highlight" id="r-commission-usd">—</div>
-    <div class="sub-hero" id="r-commission-tokens">—</div>
+    <div class="value-hero highlight" id="r-commission-usd">&mdash;</div>
+    <div class="sub-hero" id="r-commission-tokens">&mdash;</div>
     <div class="sub-hero-line" id="r-inflation-line" style="display:none;"></div>
     <div class="sub-hero-line" id="r-mev-line" style="display:none;"></div>
   </div>
   <div class="result-grid">
     <div class="result-item full">
       <div class="label">Effective APY</div>
-      <div class="value highlight" id="r-apy">—</div>
+      <div class="value highlight" id="r-apy">&mdash;</div>
     </div>
     <div class="result-item full price-bar">
       <div class="label">Live Price</div>
-      <div class="value" id="r-price">—</div>
+      <div class="value" id="r-price">&mdash;</div>
     </div>
   </div>
   <div class="price-note">Prices from CoinGecko. Updated at time of calculation.</div>
@@ -434,13 +628,135 @@
   const mevToggle = $('#mev-toggle');
   const mevFields = $('#mev-fields');
   const commissionLabel = $('#commission-label');
+  const presetBar = $('#preset-bar');
+  const presetList = $('#preset-list');
+  const modalOverlay = $('#modal-overlay');
+  const presetNameInput = $('#preset-name');
 
-  // Toggle MEV fields visibility and relabel commission
+  // ── Preset system ──────────────────────────────────
+
+  const STORAGE_KEY = 'globalstake_presets';
+
+  function getPresets() {
+    try {
+      return JSON.parse(localStorage.getItem(STORAGE_KEY)) || {};
+    } catch { return {}; }
+  }
+
+  function savePresets(presets) {
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(presets));
+  }
+
+  function gatherFormState() {
+    return {
+      symbol: $('#symbol').value,
+      staked: $('#staked').value,
+      inflation: $('#inflation').value,
+      supplyStaked: $('#supply-staked').value,
+      commission: $('#commission').value,
+      mevOn: mevToggle.checked,
+      mevCommission: $('#mev-commission').value,
+      mevApy: $('#mev-apy').value,
+    };
+  }
+
+  function applyFormState(state) {
+    $('#symbol').value = state.symbol || '';
+    $('#staked').value = state.staked || '';
+    $('#inflation').value = state.inflation || '';
+    $('#supply-staked').value = state.supplyStaked || '';
+    $('#commission').value = state.commission || '';
+    mevToggle.checked = !!state.mevOn;
+    mevFields.classList.toggle('visible', !!state.mevOn);
+    commissionLabel.textContent = state.mevOn ? 'Staking Commission (%)' : 'Commission Rate (%)';
+    $('#mev-commission').value = state.mevCommission || '';
+    $('#mev-apy').value = state.mevApy || '';
+  }
+
+  function renderPresets() {
+    const presets = getPresets();
+    const names = Object.keys(presets);
+    presetList.innerHTML = '';
+
+    if (names.length === 0) {
+      presetBar.classList.remove('visible');
+      return;
+    }
+
+    presetBar.classList.add('visible');
+
+    names.forEach(name => {
+      const entry = document.createElement('div');
+      entry.className = 'preset-entry';
+
+      const loadBtn = document.createElement('button');
+      loadBtn.className = 'preset-load';
+      loadBtn.textContent = name;
+      loadBtn.addEventListener('click', () => {
+        applyFormState(presets[name]);
+      });
+
+      const delBtn = document.createElement('button');
+      delBtn.className = 'preset-delete';
+      delBtn.textContent = '\u00d7';
+      delBtn.title = 'Delete preset';
+      delBtn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        const p = getPresets();
+        delete p[name];
+        savePresets(p);
+        renderPresets();
+      });
+
+      entry.appendChild(loadBtn);
+      entry.appendChild(delBtn);
+      presetList.appendChild(entry);
+    });
+  }
+
+  // Save preset button & modal
+  $('#save-preset').addEventListener('click', () => {
+    presetNameInput.value = '';
+    modalOverlay.classList.add('visible');
+    setTimeout(() => presetNameInput.focus(), 50);
+  });
+
+  $('#modal-cancel').addEventListener('click', () => {
+    modalOverlay.classList.remove('visible');
+  });
+
+  modalOverlay.addEventListener('click', (e) => {
+    if (e.target === modalOverlay) modalOverlay.classList.remove('visible');
+  });
+
+  $('#modal-save').addEventListener('click', doSavePreset);
+  presetNameInput.addEventListener('keydown', (e) => {
+    if (e.key === 'Enter') doSavePreset();
+    if (e.key === 'Escape') modalOverlay.classList.remove('visible');
+  });
+
+  function doSavePreset() {
+    const name = presetNameInput.value.trim();
+    if (!name) return;
+    const presets = getPresets();
+    presets[name] = gatherFormState();
+    savePresets(presets);
+    renderPresets();
+    modalOverlay.classList.remove('visible');
+  }
+
+  // Initial render
+  renderPresets();
+
+  // ── MEV toggle ─────────────────────────────────────
+
   mevToggle.addEventListener('change', () => {
     const on = mevToggle.checked;
     mevFields.classList.toggle('visible', on);
     commissionLabel.textContent = on ? 'Staking Commission (%)' : 'Commission Rate (%)';
   });
+
+  // ── Helpers ────────────────────────────────────────
 
   function showError(msg) {
     errorEl.textContent = msg;
@@ -472,6 +788,8 @@
     if (!data[coinId] || data[coinId].usd == null) throw new Error('Price unavailable');
     return data[coinId].usd;
   }
+
+  // ── Calculate ──────────────────────────────────────
 
   btn.addEventListener('click', async () => {
     showError('');
@@ -563,8 +881,8 @@
     }
   });
 
-  // Allow Enter key to trigger calculation
-  document.querySelectorAll('input').forEach(input => {
+  // Allow Enter key to trigger calculation (except in modal)
+  document.querySelectorAll('.card input').forEach(input => {
     input.addEventListener('keydown', (e) => {
       if (e.key === 'Enter') btn.click();
     });
