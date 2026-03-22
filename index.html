@@ -104,6 +104,21 @@
     line-height: 1.4;
   }
 
+  .badge-est {
+    display: none;
+    font-size: 0.7rem;
+    font-weight: 600;
+    color: var(--text-dim);
+    background: rgba(195, 195, 195, 0.12);
+    padding: 0.1rem 0.45rem;
+    border-radius: 4px;
+    margin-left: 0.4rem;
+    vertical-align: middle;
+    letter-spacing: 0.3px;
+  }
+
+  .badge-est.visible { display: inline; }
+
   .token-field { position: relative; }
 
   .token-field .status-icon {
@@ -549,8 +564,9 @@
   </div>
 
   <div class="field">
-    <label for="supply-staked">% of Supply Staked</label>
+    <label for="supply-staked">% of Supply Staked <span class="badge-est" id="supply-badge">Est.</span></label>
     <input type="number" id="supply-staked" placeholder="e.g. 50" min="0.01" max="100" step="any">
+    <div class="helper-text" id="supply-helper" style="display:none;"></div>
   </div>
 
   <div class="field">
@@ -747,6 +763,56 @@
 
   // Initial render
   renderPresets();
+
+  // ── Staking ratio auto-lookup ────────────────────────
+
+  // Staking ratios sourced from StakingRewards.com — update periodically
+  const STAKING_RATIOS = {
+    SOL: 65,
+    ATOM: 59,
+    DOT: 56,
+    ETH: 28,
+    AVAX: 57,
+    MATIC: 40,
+    ADA: 62,
+    NEAR: 55,
+    TRX: 48,
+    MON: 13,
+    VET: 45,
+    APT: 78,
+    SUI: 77,
+    XTZ: 68,
+  };
+
+  const supplyInput = $('#supply-staked');
+  const supplyBadge = $('#supply-badge');
+  const supplyHelper = $('#supply-helper');
+
+  function lookupStakingRatio(symbol) {
+    const upper = symbol.trim().toUpperCase();
+    const supplyBadge = $('#supply-badge');
+    const supplyHelper = $('#supply-helper');
+
+    if (!upper) {
+      supplyBadge.classList.remove('visible');
+      supplyHelper.style.display = 'none';
+      return;
+    }
+
+    if (STAKING_RATIOS[upper] !== undefined) {
+      supplyInput.value = STAKING_RATIOS[upper];
+      supplyBadge.classList.add('visible');
+      supplyHelper.style.display = 'none';
+    } else {
+      supplyBadge.classList.remove('visible');
+      supplyHelper.textContent = 'Enter manually \u2014 data not available for this token';
+      supplyHelper.style.display = 'block';
+    }
+  }
+
+  $('#symbol').addEventListener('input', (e) => {
+    lookupStakingRatio(e.target.value);
+  });
 
   // ── MEV toggle ─────────────────────────────────────
 
