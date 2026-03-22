@@ -624,6 +624,7 @@
       <label for="mev-apy">Estimated MEV APY (%)</label>
       <input type="number" id="mev-apy" placeholder="e.g. 8" min="0" step="any">
       <div class="helper-text">Check your chain's validator dashboard for current rates (e.g. monadvision.com for Monad, jito.wtf for Solana)</div>
+      <div id="mev-link" style="margin-top:0.3rem;"></div>
     </div>
   </div>
 
@@ -848,8 +849,27 @@
     }
   }
 
+  // Add more MEV dashboard links here as needed
+  const MEV_LINKS = {
+    SOL: { label: "View on Jito", url: "https://jito.wtf" },
+    MON: { label: "View on MonadVision", url: "https://monadvision.com/validators" },
+  };
+
+  const mevLinkEl = $('#mev-link');
+
+  function updateMevLink(symbol) {
+    const upper = symbol.trim().toUpperCase();
+    const entry = MEV_LINKS[upper];
+    if (entry) {
+      mevLinkEl.innerHTML = '<a href="' + entry.url + '" target="_blank" rel="noopener" style="color:#2957CB;font-size:0.78rem;font-weight:500;text-decoration:none;">' + entry.label + ' \u2197</a>';
+    } else {
+      mevLinkEl.innerHTML = '';
+    }
+  }
+
   $('#symbol').addEventListener('input', (e) => {
     lookupStakingRatio(e.target.value);
+    updateMevLink(e.target.value);
   });
 
   // ── MEV toggle ─────────────────────────────────────
